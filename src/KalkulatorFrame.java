@@ -2,8 +2,17 @@ import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -19,6 +28,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
+import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 
@@ -33,15 +43,83 @@ public class KalkulatorFrame extends JFrame implements Runnable {
 	private CloseAction ca=new CloseAction();
 	private ComputeAction co=new ComputeAction();
 	private ClearAction cl=new ClearAction();
-	private String[] CoToUS= {"kg->lb","cm->in","Celcjusz->Fahrenheit","l->ga"}, 
-			USToCo= {"lb->kg","in->cm","Fahrenheit->Celcjusz","ga->l"};
-	private JComboBox<String> cbJednostki;
+	private UnitChangeAlgorithm[] CoToUS= {
+			new UnitChangeAlgorithm("kg->lb") {
+				
+				@Override
+				public double changeUnits(double val) {
+					// TODO Auto-generated method stub
+					return val*2.2046;
+				}
+			},
+			new UnitChangeAlgorithm("cm->in") {
+				
+				@Override
+				public double changeUnits(double val) {
+					// TODO Auto-generated method stub
+					return val * 0.39370;
+				}
+			},
+			new UnitChangeAlgorithm("Celcjusz->Fahrenheit") {
+				
+				@Override
+				public double changeUnits(double val) {
+					// TODO Auto-generated method stub
+					return val*1.8+32.;
+				}
+			},
+			new UnitChangeAlgorithm("l->ga") {
+				
+				@Override
+				public double changeUnits(double val) {
+					// TODO Auto-generated method stub
+					return val* 0.26417;
+				}
+			}
+			}, 
+			USToCo= {
+					new UnitChangeAlgorithm("lb->kg") {
+						
+						@Override
+						public double changeUnits(double val) {
+							// TODO Auto-generated method stub
+							return val/ 2.2046;
+						}
+					}
+					,
+					new UnitChangeAlgorithm("in->cm") {
+						
+						@Override
+						public double changeUnits(double val) {
+							// TODO Auto-generated method stub
+							return val/0.39370;
+						}
+					},
+					new UnitChangeAlgorithm("Fahrenheit->Celcjusz") {
+						
+						@Override
+						public double changeUnits(double val) {
+							// TODO Auto-generated method stub
+							return (val-32.)/1.8;
+						}
+					}
+					,
+					new UnitChangeAlgorithm("ga->l") {
+						
+						@Override
+						public double changeUnits(double val) {
+							// TODO Auto-generated method stub
+							return val/0.26417;
+						}
+					}
+					};
+	private JComboBox<UnitChangeAlgorithm> cbJednostki;
 	private JRadioButton rbCoToUS,rbUSToCo;
 	private ButtonGroup bg;
 	private JTextField tfDane;
 	private JLabel lWynik;
 	private JButton bOblicz;
-	
+
 	
 	public KalkulatorFrame(String title) {
 		super(title);
@@ -72,7 +150,7 @@ public class KalkulatorFrame extends JFrame implements Runnable {
 		add(rbCoToUS);
 		add(rbUSToCo);
 		rbCoToUS.setSelected(true);
-		DefaultComboBoxModel<String> dcbm=new DefaultComboBoxModel<>(CoToUS);
+		DefaultComboBoxModel<UnitChangeAlgorithm> dcbm=new DefaultComboBoxModel<>(CoToUS);
 		cbJednostki=new JComboBox<>(dcbm);
 		add(cbJednostki);
 		
@@ -82,12 +160,32 @@ public class KalkulatorFrame extends JFrame implements Runnable {
 		add(tfDane);
 		add(lWynik);
 		add(bOblicz);
+		rbCoToUS.addItemListener(new ItemListener() {
+			
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				if(rbCoToUS.isSelected())
+				cbJednostki.setModel(new DefaultComboBoxModel<>(CoToUS));
+			}
+		});
+		rbUSToCo.addItemListener(new ItemListener() {
+			
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				if(rbUSToCo.isSelected())
+					cbJednostki.setModel(new DefaultComboBoxModel<UnitChangeAlgorithm>(USToCo));
+			}
+		});
 	}
 
 	@Override
 	public void run() {
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		setVisible(true);
+	}
+	
+	private KalkulatorFrame getFrame() {
+		return this;
 	}
 
 	class WindowClosingAdapter extends WindowAdapter{
@@ -107,7 +205,8 @@ public class KalkulatorFrame extends JFrame implements Runnable {
 
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			// TODO Auto-generated method stub
+			KalkulatorFrame kf=getFrame();
+			kf.dispatchEvent(new WindowEvent(kf, WindowEvent.WINDOW_CLOSING));
 		}
 		
 	}
@@ -120,8 +219,16 @@ public class KalkulatorFrame extends JFrame implements Runnable {
 		}
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			// TODO Auto-generated method stub
-			
+			try {
+				Double val=Double.parseDouble(tfDane.getText());
+				UnitChangeAlgorithm algorithm=(UnitChangeAlgorithm)cbJednostki.getSelectedItem();
+				Double value=algorithm.changeUnits(val);
+				lWynik.setText(value.toString());
+			}
+			catch(Exception ex) {
+				JOptionPane.showMessageDialog(getFrame(), "Wprowadzono niepoprawną wartość");
+				tfDane.setText("");
+			}
 		}
 		
 	}
@@ -134,9 +241,25 @@ public class KalkulatorFrame extends JFrame implements Runnable {
 		}
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			// TODO Auto-generated method stub
-			
+			tfDane.setText("");
+			lWynik.setText("");
 		}
 		
+	}
+		
+	abstract class UnitChangeAlgorithm {
+		private String opis;
+
+		public UnitChangeAlgorithm(String opis) {
+			super();
+			this.opis = opis;
+		}
+		
+		@Override
+		public String toString() {
+			return opis;
+		}
+		
+		public abstract double changeUnits(double val); 
 	}
 }
